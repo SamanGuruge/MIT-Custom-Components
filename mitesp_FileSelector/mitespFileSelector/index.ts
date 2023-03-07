@@ -1,13 +1,35 @@
+import { FileValidated } from "@dropzone-ui/react";
+import {
+  FileSelector,
+  IFileSelectorProps,
+} from "./components/SelectFileswithDargNDrop";
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
-import { HelloWorld, IHelloWorldProps } from "./HelloWorld";
 import * as React from "react";
+
+const fileDetails = (file: File) => {
+  let fileContent: string;
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function (e) {
+      var contents = e.target?.result;
+      resolve(contents as string);
+      console.log(contents);
+    };
+  });
+};
 
 export class mitespFileSelector
   implements ComponentFramework.ReactControl<IInputs, IOutputs>
 {
-  private theComponent: ComponentFramework.ReactControl<IInputs, IOutputs>;
-  private notifyOutputChanged: () => void;
-
+  //Initialize Variables
+  private _context: ComponentFramework.Context<IInputs>;
+  private _notifyOutputChanged: () => void;
+  private _incommingFiles: FileValidated[];
+  private _outputJSON: String;
+  private _file: string;
+  private _onChange: (newFiles: FileValidated[]) => void;
+  private _onClean: (files: FileValidated[]) => void;
   /**
    * Empty constructor.
    */
@@ -25,9 +47,15 @@ export class mitespFileSelector
     notifyOutputChanged: () => void,
     state: ComponentFramework.Dictionary
   ): void {
-    this.notifyOutputChanged = notifyOutputChanged;
+    // Add control initialization code
+    this._outputJSON = "";
+    this._notifyOutputChanged = notifyOutputChanged;
+    this._context = context;
+    this._onChange = this.onChange.bind(this);
+    this._onClean = this.onClean.bind(this);
   }
 
+  //
   /**
    * Called when any value in the property bag has changed. This includes field values, data-sets, global values such as container height and width, offline status, control metadata values such as label, visible, etc.
    * @param context The entire property bag available to control via Context Object; It contains values as set up by the customizer mapped to names defined in the manifest, as well as utility functions
@@ -37,17 +65,70 @@ export class mitespFileSelector
     context: ComponentFramework.Context<IInputs>
   ): React.ReactElement {
     //const props: IHelloWorldProps = { name: 'Hello, World!' };
-    // return React.createElement(
-    //     HelloWorld, props
-    // );
+    return React.createElement(FileSelector, {
+      onChange: this.onChange,
+      onDelete: this.onDelete,
+      onSee: this.onSee,
+      onClean: this.onClean,
+    });
   }
 
+  public onDelete = (id: string | number | undefined): void => {
+    this._notifyOutputChanged();
+  };
+  public onSee = (imageSource: string): void => {
+    this._notifyOutputChanged();
+  };
+  public onClean = (files: FileValidated[]): void => {
+    this._outputJSON = "";
+    this._notifyOutputChanged();
+  };
+
+  public onChange = async (newFiles: FileValidated[]): Promise<void> => {
+    console.log(newFiles);
+
+    // conversion and add to the json
+    let files: Object[] = [];
+
+    for await (const fileValidate of newFiles) {
+      let fileDetailsObj = new Object().constructor({
+        id: Number,
+        fileName: String,
+        fileType: String,
+        fileSize: String,
+        fileContent: String,
+      });
+
+      try {
+        fileDetailsObj.id = fileValidate.id;
+        fileDetailsObj.fileName = fileValidate.file.name;
+        fileDetailsObj.fileType = fileValidate.file.type;
+        fileDetailsObj.fileSize = fileValidate.file.size;
+
+        //this.getFileContent(fileValidate.file).then(fileContent=>{fileDetailsObj.fileContent=fileContent; files.push(fileDetailsObj);this.notifyOutputChanged();})
+
+        fileDetailsObj.fileContent = await fileDetails(fileValidate.file);
+
+        files.push(fileDetailsObj);
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    this._outputJSON = JSON.stringify(files);
+    console.log(this._outputJSON);
+    this._notifyOutputChanged();
+
+    //generate json object
+  };
+
+  // file con
   /**
    * It is called by the framework prior to a control receiving new data.
    * @returns an object based on nomenclature defined in manifest, expecting object[s] for property marked as “bound” or “output”
    */
   public getOutputs(): IOutputs {
-    return {};
+    return { outProperty: this._outputJSON.toString() };
   }
 
   /**

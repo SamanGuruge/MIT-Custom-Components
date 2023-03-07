@@ -12,6 +12,7 @@
     "refreshTypes": "pcf-scripts refreshTypes"
   },
   "dependencies": {
+    "@dropzone-ui/react": "^6.7.20",
     "@fluentui/react": "8.29.0",
     "@types/dropzone": "^5.7.4",
     "react": "16.8.6",
